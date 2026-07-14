@@ -1,0 +1,91 @@
+/* ============================================================
+   Code and Theory — design tokens (fonts, color, type scale)
+   Ported from the Engagement OS design handoff.
+   ============================================================ */
+
+@font-face {
+  font-family: "NB Akademie Std";
+  src: url("/fonts/NB-Akademie-Std-Regular.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "NB Akademie Std";
+  src: url("/fonts/NB-Akademie-Std-Bold.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "NB Akademie Std";
+  src: url("/fonts/NB-Akademie-Std-Italic.ttf") format("truetype");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: "NB Akademie Std";
+  src: url("/fonts/NB-Akademie-Std-Bold-Italic.ttf") format("truetype");
+  font-weight: 700; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: "NB Akademie";
+  src: url("/fonts/NB-Akademie-Regular.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "NB Akademie";
+  src: url("/fonts/NB-Akademie-Bold.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Koor";
+  src: url("/fonts/Koor-LightNormal.otf") format("opentype");
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Koor";
+  src: url("/fonts/Koor-LightThick.otf") format("opentype");
+  font-weight: 350; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Koor";
+  src: url("/fonts/Koor-RegularThick.otf") format("opentype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Koor";
+  src: url("/fonts/Koor-MediumThick.otf") format("opentype");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Koor";
+  src: url("/fonts/Koor-BoldNormal.otf") format("opentype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
+:root {
+  --ink:       rgb(0, 0, 0);
+  --paper:     rgb(255, 255, 255);
+  --ink-2:     rgb(62, 62, 62);
+  --ink-3:     rgb(102, 102, 102);
+  --rule:      rgb(169, 169, 169);
+
+  --font-serif: "Koor", "Times New Roman", Georgia, serif;
+  --font-sans:  "NB Akademie", "NB Akademie Std", "Helvetica Neue", Arial, sans-serif;
+}
+
+html, body { margin: 0; padding: 0; background: #fff; }
+* { box-sizing: border-box; }
+#root { min-height: 100vh; }
+a { color: #000; text-decoration: underline; text-underline-offset: 2px; }
+a:hover { opacity: 0.6; }
+::selection { background: #000; color: #fff; }
+input, select, textarea, button { font-family: var(--font-sans); }
+input:focus, select:focus, textarea:focus { outline: 1px solid #000; outline-offset: -1px; }
+select { -webkit-appearance: none; appearance: none; background-image: none; cursor: pointer; }
+::-webkit-scrollbar { height: 10px; width: 10px; }
+::-webkit-scrollbar-thumb { background: #c9c9c9; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes riseIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideIn { from { transform: translateX(40px); opacity: 0.4; } to { transform: translateX(0); opacity: 1; } }
+
+.fade-in { animation: fadeIn 0.3s ease; }
+.rise-in { animation: riseIn 0.3s ease; }
+.slide-in { animation: slideIn 0.25s cubic-bezier(0.2,0,0.2,1); }

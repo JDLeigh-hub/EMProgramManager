@@ -65,7 +65,7 @@ export default function Home() {
         <div style={{ marginTop: 60, border: '1px dashed rgba(0,0,0,0.3)', padding: 64, textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 350 }}>No projects yet</div>
           <div style={{ color: '#666', fontSize: 14, marginTop: 10, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>
-            Create your first engagement from the template. It comes pre-loaded with the full 172-item EM checklist, phased project plan, RACI, use-case menu and the value-realization framework.
+            Create your first engagement from the template. It comes pre-loaded with the full 182-item EM checklist, phased project plan, RACI, use-case menu and the value-realization framework.
           </div>
           <button style={{ ...btnSolid, marginTop: 24, padding: '13px 26px' }} onClick={app.openNew}>+ New project</button>
         </div>

@@ -39,7 +39,7 @@ export default function NewProjectModal() {
               <input ref={app.npTarget} type="date" style={input} />
             </div>
           </div>
-          <div style={{ fontSize: 11, color: '#999', lineHeight: 1.5 }}>Includes the full 172-item checklist, 38-task project plan, RACI, use-case menu, KPIs and the value-realization framework — all blank and ready to fill.</div>
+          <div style={{ fontSize: 11, color: '#999', lineHeight: 1.5 }}>Includes the full 182-item checklist, 38-task project plan, RACI, use-case menu, KPIs and the value-realization framework — all blank and ready to fill.</div>
         </div>
         <div style={{ display: 'flex', borderTop: '1px solid rgba(0,0,0,0.12)' }}>
           <button onClick={app.closeNew} style={cancelBtn}>Cancel</button>

@@ -50,7 +50,7 @@ export default function Checklist({ proj }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 350 }}>EM Checklist</div>
-          <div style={{ fontSize: 12, color: '#666' }}>172-item master tracker. Assign an owner, set a due date, and update status. N/A items are excluded from % complete.</div>
+          <div style={{ fontSize: 12, color: '#666' }}>182-item master tracker. Assign an owner, set a due date, and update status. N/A items are excluded from % complete.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input placeholder="Search items…" value={q} onChange={(e) => app.onSearch(e.target.value)} style={{ fontSize: 12, padding: '8px 10px', border: '1px solid rgba(0,0,0,0.25)', width: 200 }} />

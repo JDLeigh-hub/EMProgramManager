@@ -1031,6 +1031,66 @@ export const TEMPLATE = {
    "section": "12. First 2 weeks priority",
    "subsection": "Week 2",
    "item": "Surface top risks before they become schedule slips"
+  },
+  {
+   "id": "c173",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Kickoff readiness gates (W0)",
+   "item": "Contract executed (SOW / innovation-lab SKU signed)"
+  },
+  {
+   "id": "c174",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Kickoff readiness gates (W0)",
+   "item": "Single use case agreed in the JSP (Validate POC or Instruct to Assemble POC)"
+  },
+  {
+   "id": "c175",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Kickoff readiness gates (W0)",
+   "item": "Adobe pod assigned (EM · FDE Lead · AI/ML Scientist · PM-of-record)"
+  },
+  {
+   "id": "c176",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Kickoff readiness gates (W0)",
+   "item": "Customer POCs identified (Exec Sponsor + day-to-day lead + technical/data lead + brand/creative lead)"
+  },
+  {
+   "id": "c177",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Kickoff readiness gates (W0)",
+   "item": "Pilot success metrics signed off (measurable, from JSP)"
+  },
+  {
+   "id": "c178",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Hydration dependency",
+   "item": "Confirm brand kits, approved assets, briefs, compliance rules, and ~40K–50K annotations are accessible before Build (FDE owns setup; customer owns access)"
+  },
+  {
+   "id": "c179",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Recommended kickoff deliverables",
+   "item": "Discovery & value map — objectives, pain points, KPIs, exec sponsor, target users"
+  },
+  {
+   "id": "c180",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Recommended kickoff deliverables",
+   "item": "Use Case Definition — 2–3 scoped use cases with entry/exit + success criteria"
+  },
+  {
+   "id": "c181",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Recommended kickoff deliverables",
+   "item": "Current-State Discovery — end-to-end workflow maps, tools/data flows, bottlenecks"
+  },
+  {
+   "id": "c182",
+   "section": "1. Before kickoff: foundation",
+   "subsection": "Recommended kickoff deliverables",
+   "item": "Input Asset Collection — brand-input package + confirmed access; pilot readout vs baseline"
   }
  ],
  "plan": [

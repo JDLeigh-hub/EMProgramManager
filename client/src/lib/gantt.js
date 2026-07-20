@@ -1,6 +1,7 @@
 import { parseDate, advance, today } from './dates.js';
 import { defaultTimeline } from './project.js';
 import { phasePctMap } from './stats.js';
+import { GANTT_PHASE_ORDER, taskPhaseGroup } from './phases.js';
 
 function ucStageProgress(uc, key) {
   const order = ['discovery', 'build', 'uat', 'launch', 'value'];
@@ -18,7 +19,9 @@ const PALETTE = [
 ];
 const SHARED_COLOR = { fill: '#3E3E3E', track: '#E6E6E6' };
 
-export function computeGantt(proj) {
+// viewBy: 'all' shows every use case's rows; a use-case id restricts the
+// per-use-case bands to just that use case (shared/Kickoff rows always show).
+export function computeGantt(proj, viewBy = 'all') {
   const tl = proj.timeline || defaultTimeline();
   const engStart = parseDate(tl.engagementStart);
   const ucs = proj.useCases || [];
@@ -34,12 +37,14 @@ export function computeGantt(proj) {
   shared.forEach(s => { const start = cursor; const end = advance(start, Math.max(1, s.days), bd); sharedBars.push({ s, start, end }); cursor = end; });
   const sharedEnd = cursor;
 
-  const ucGroups = ucs.map(uc => {
+  const ucGroups = ucs.map((uc, i) => {
     let c = parseDate(tl.ucStarts[uc.id]) || sharedEnd;
     const bars = perUc.map(s => { const start = c; const end = advance(start, Math.max(1, s.days), bd); c = end; return { s, start, end }; });
-    return { uc, start: parseDate(tl.ucStarts[uc.id]) || sharedEnd, end: c, bars };
+    return { uc, color: PALETTE[i % PALETTE.length], start: parseDate(tl.ucStarts[uc.id]) || sharedEnd, end: c, bars };
   });
 
+  // The date axis always spans the whole engagement, regardless of the
+  // view-by filter, so switching filters doesn't rescale the timeline.
   let min = engStart, max = sharedEnd;
   ucGroups.forEach(g => { if (g.start < min) min = g.start; if (g.end > max) max = g.end; });
   const span = Math.max(1, (max - min));
@@ -51,21 +56,25 @@ export function computeGantt(proj) {
     const left = pctOf(bar.start), w = Math.max(0.5, pctOf(bar.end) - pctOf(bar.start));
     const prog = uc ? ucStageProgress(uc, bar.s.key) : phasePct(bar.s.phase);
     const days = Math.round((bar.end - bar.start) / 86400000);
+    const ucLabel = uc ? (uc.name || uc.code || 'Use case') : null;
     return {
       label: bar.s.label, dates: fmtDate(bar.start) + ' – ' + fmtDate(bar.end), daysLabel: days + 'd',
-      progPct: prog + '%', title: bar.s.label + ': ' + fmtDate(bar.start) + ' – ' + fmtDate(bar.end) + ' · ' + prog + '% complete',
+      ucLabel, ucTagStyle: uc ? { color: color.fill, fontWeight: 700 } : null,
+      title: bar.s.label + (ucLabel ? ' · ' + ucLabel : '') + ': ' + fmtDate(bar.start) + ' – ' + fmtDate(bar.end) + ' · ' + prog + '% complete',
       barStyle: { position: 'absolute', top: 6, height: 20, left: left.toFixed(2) + '%', width: w.toFixed(2) + '%', background: color.track, border: '1px solid ' + color.fill, overflow: 'hidden' },
       fillStyle: { position: 'absolute', left: 0, top: 0, bottom: 0, width: prog + '%', background: color.fill },
     };
   };
 
-  const headStyleFor = (c) => ({ display: 'grid', gridTemplateColumns: '210px 1fr', background: c.fill, color: '#fff' });
-  const groups = [];
-  groups.push({ name: 'Engagement setup — one-time', meta: fmtDate(engStart) + ' – ' + fmtDate(sharedEnd), headStyle: headStyleFor(SHARED_COLOR), rows: sharedBars.map(b => mkRow(b, null, SHARED_COLOR)) });
-  ucGroups.forEach((g, i) => {
-    const c = PALETTE[i % PALETTE.length];
-    groups.push({ name: g.uc.name || g.uc.code || 'Use case', meta: 'Starts ' + fmtDate(g.start) + (g.uc.status ? ' · ' + g.uc.status : ''), headStyle: headStyleFor(c), rows: g.bars.map(b => mkRow(b, g.uc, c)) });
+  const bandRows = {};
+  GANTT_PHASE_ORDER.forEach(ph => { bandRows[ph] = []; });
+  sharedBars.forEach(b => { bandRows[taskPhaseGroup(b.s.phase)].push(mkRow(b, null, SHARED_COLOR)); });
+  ucGroups.forEach(g => {
+    if (viewBy !== 'all' && viewBy !== g.uc.id) return;
+    g.bars.forEach(b => { bandRows[taskPhaseGroup(b.s.phase)].push(mkRow(b, g.uc, g.color)); });
   });
+
+  const groups = GANTT_PHASE_ORDER.map(ph => ({ name: ph, rows: bandRows[ph], empty: bandRows[ph].length === 0 }));
 
   const months = [];
   let mm = new Date(min.getFullYear(), min.getMonth(), 1);
@@ -79,8 +88,10 @@ export function computeGantt(proj) {
   const t0 = today();
   const todayLeft = (t0 >= min && t0 <= max) ? pctOf(t0).toFixed(2) + '%' : null;
 
+  const legend = ucGroups.map(g => ({ id: g.uc.id, name: g.uc.name || g.uc.code || 'Use case', color: g.color.fill }));
+
   return {
-    ...base, ok: true, render: !!tl.show, needsStart: false, hasToday: todayLeft != null, groups, months, trackBg, todayLeft,
+    ...base, ok: true, render: !!tl.show, needsStart: false, hasToday: todayLeft != null, groups, months, trackBg, todayLeft, legend,
     rangeLabel: fmtDate(min) + ' – ' + fmtDate(max), totalDaysLabel: totalDays + ' days · ' + (bd ? 'business days' : 'calendar days'),
   };
 }

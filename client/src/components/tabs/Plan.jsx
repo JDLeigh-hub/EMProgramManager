@@ -6,7 +6,8 @@ import { computeGantt } from '../../lib/gantt.js';
 export default function Plan({ proj }) {
   const app = useEngagement();
   const tl = proj.timeline || app.defaultTimeline();
-  const gantt = useMemo(() => computeGantt(proj), [proj]);
+  const viewBy = app.ui.ganttViewBy || 'all';
+  const gantt = useMemo(() => computeGantt(proj, viewBy), [proj, viewBy]);
 
   const planRows = useMemo(() => proj.plan.map(t => {
     let duration = '';
@@ -25,7 +26,7 @@ export default function Plan({ proj }) {
     <div className="rise-in">
       <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 350 }}>Project Plan</div>
       <div style={{ fontSize: 12, color: '#666', marginBottom: 18, maxWidth: 720 }}>
-        Set one engagement start date for the shared, one-time work (mobilization, access, kickoff), then a start date per use case. Each use case runs its own Discovery → Build → UAT → Launch → Value track. Generate the timeline and it auto-updates as dates change. Bar fill shows progress pulled from the task detail below.
+        Set one engagement start date for the shared, one-time work (mobilization, access, kickoff), then a start date per use case. The timeline rolls everything up into four phases — Kickoff → Discovery → Implementation → Assessment — with each use case's work shown inside the phase it belongs to. Generate the timeline and it auto-updates as dates change. Bar fill shows progress pulled from the task detail below.
       </div>
 
       <div style={{ border: '1px solid #000', marginBottom: 22 }}>
@@ -78,16 +79,25 @@ export default function Plan({ proj }) {
 
       {gantt.render && (
         <div style={{ border: '1px solid #000', marginBottom: 30 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #000' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #000', flexWrap: 'wrap', gap: 10 }}>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>Engagement timeline</div>
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 11, color: '#666' }}>
               <span>{gantt.rangeLabel} · {gantt.totalDaysLabel}</span>
-              <span>Each track = one use case · bar = planned window · solid fill = % complete</span>
+              <span>Bar = planned window · solid fill = % complete</span>
             </div>
           </div>
+          {gantt.legend.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 14px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666', marginRight: 4, alignSelf: 'center' }}>View by</span>
+              <button onClick={() => app.setGanttViewBy('all')} style={viewByBtn(viewBy === 'all')}>Whole project</button>
+              {gantt.legend.map(l => (
+                <button key={l.id} onClick={() => app.setGanttViewBy(l.id)} style={viewByBtn(viewBy === l.id, l.color)}>{l.name}</button>
+              ))}
+            </div>
+          )}
           <div style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: 760 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr', borderBottom: '1px solid rgba(0,0,0,0.15)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', borderBottom: '1px solid rgba(0,0,0,0.15)' }}>
                 <div style={{ padding: '6px 12px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>Stage</div>
                 <div style={{ position: 'relative', height: 26 }}>
                   {gantt.months.map((m, i) => (
@@ -97,14 +107,16 @@ export default function Plan({ proj }) {
               </div>
               {gantt.groups.map((grp, gi) => (
                 <div key={gi}>
-                  <div style={grp.headStyle}>
-                    <div style={{ padding: '6px 12px', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 700 }}>{grp.name}</div>
-                    <div style={{ padding: '6px 12px', fontSize: 11, color: '#bbb' }}>{grp.meta}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', background: '#000', color: '#fff' }}>
+                    <div style={{ padding: '6px 12px', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>{gi + 1}. {grp.name}</div>
+                    <div style={{ padding: '6px 12px', fontSize: 11, color: '#bbb' }}>{grp.empty ? '—' : ''}</div>
                   </div>
+                  {grp.empty && <div style={{ padding: '10px 12px', fontSize: 11, color: '#999', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>Nothing in this phase{viewBy !== 'all' ? ' for this use case' : ''}.</div>}
                   {grp.rows.map((r, ri) => (
-                    <div key={ri} style={{ display: 'grid', gridTemplateColumns: '210px 1fr', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                    <div key={ri} style={{ display: 'grid', gridTemplateColumns: '230px 1fr', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                       <div style={{ padding: '7px 12px' }}>
                         <div style={{ fontSize: 12 }}>{r.label}</div>
+                        {r.ucLabel && <div style={{ fontSize: 10, ...r.ucTagStyle }}>{r.ucLabel}</div>}
                         <div style={{ fontSize: 10, color: '#999' }}>{r.dates} · {r.daysLabel}</div>
                       </div>
                       <div style={{ position: 'relative', height: 32, ...gantt.trackBg }}>
@@ -167,3 +179,10 @@ function Th({ children, w, align }) {
 
 const genBtn = { border: '1px solid #fff', background: '#fff', color: '#000', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', padding: '7px 14px' };
 const dateInput = { fontSize: 13, padding: '7px 9px', border: '1px solid rgba(0,0,0,0.3)' };
+
+function viewByBtn(active, color) {
+  return {
+    fontSize: 11, padding: '6px 12px', border: '1px solid ' + (active ? '#000' : 'rgba(0,0,0,0.2)'), cursor: 'pointer',
+    background: active ? '#000' : '#fff', color: active ? '#fff' : (color || '#000'), fontWeight: active ? 700 : 400,
+  };
+}

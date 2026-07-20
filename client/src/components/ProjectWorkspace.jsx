@@ -3,7 +3,9 @@ import { useEngagement } from '../store/EngagementContext.jsx';
 import { computeStats } from '../lib/stats.js';
 import { healthStyle } from '../lib/styleHelpers.js';
 import { fmt } from '../lib/dates.js';
+import { ENGAGEMENT_PHASES } from '../lib/phases.js';
 import Dashboard from './tabs/Dashboard.jsx';
+import Discovery from './tabs/Discovery.jsx';
 import Checklist from './tabs/Checklist.jsx';
 import Plan from './tabs/Plan.jsx';
 import UseCases from './tabs/UseCases.jsx';
@@ -15,10 +17,35 @@ import Stakeholders from './tabs/Stakeholders.jsx';
 import Library from './tabs/Library.jsx';
 
 const TAB_DEFS = [
-  ['dashboard', 'Overview'], ['checklist', 'Checklist'], ['plan', 'Project Plan'], ['usecases', 'Use Cases'],
+  ['dashboard', 'Overview'], ['discovery', 'Discovery'], ['checklist', 'Checklist'], ['plan', 'Project Plan'], ['usecases', 'Use Cases'],
   ['kpis', 'KPIs & Value'], ['raci', 'RACI'], ['baseline', 'Value Baseline'], ['hypothesis', 'Value Hypothesis'],
   ['stakeholders', 'Stakeholders'], ['library', 'Library'],
 ];
+
+function PhaseStepper({ proj, app }) {
+  const current = ENGAGEMENT_PHASES.includes(proj.phase) ? proj.phase : ENGAGEMENT_PHASES[0];
+  const curIdx = ENGAGEMENT_PHASES.indexOf(current);
+  return (
+    <div style={{ display: 'flex', marginTop: 14, border: '1px solid #000' }}>
+      {ENGAGEMENT_PHASES.map((ph, i) => {
+        const done = i < curIdx, active = i === curIdx;
+        return (
+          <button
+            key={ph}
+            onClick={() => app.setProjectPhase(ph)}
+            title={active ? 'Current phase' : 'Set as current phase'}
+            style={{
+              flex: 1, border: 0, borderRight: i < ENGAGEMENT_PHASES.length - 1 ? '1px solid #000' : 0,
+              padding: '8px 6px', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: 11,
+              letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: active ? 700 : 400,
+              background: active ? '#000' : done ? '#ededed' : '#fff', color: active ? '#fff' : '#000',
+            }}
+          >{i + 1}. {ph}</button>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function ProjectWorkspace() {
   const app = useEngagement();
@@ -53,6 +80,7 @@ export default function ProjectWorkspace() {
               <button onClick={app.openHelp} title="How to use Engagement OS" style={helpBtn}>?</button>
             </div>
           </div>
+          <PhaseStepper proj={proj} app={app} />
           <div style={{ display: 'flex', gap: 2, marginTop: 16, overflowX: 'auto' }}>
             {TAB_DEFS.map(([id, label]) => {
               const active = app.ui.tab === id;
@@ -70,6 +98,7 @@ export default function ProjectWorkspace() {
 
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 40px 100px' }}>
         {app.ui.tab === 'dashboard' && <Dashboard proj={proj} dash={dash} />}
+        {app.ui.tab === 'discovery' && <Discovery proj={proj} />}
         {app.ui.tab === 'checklist' && <Checklist proj={proj} />}
         {app.ui.tab === 'plan' && <Plan proj={proj} />}
         {app.ui.tab === 'usecases' && <UseCases proj={proj} />}

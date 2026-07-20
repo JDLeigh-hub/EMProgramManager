@@ -15,6 +15,7 @@ const initialUi = {
   helpOpen: false, integrationsOpen: false, weekOffset: 0, onlyMine: false,
   uploading: [], aiOpen: false, aiFileId: null, aiFileName: '', aiProposal: null, aiChecked: {}, aiBusyId: null, aiErr: '',
   editing: {}, expandBlocked: false, expandDue: false, ucView: 'repo',
+  clScope: 'phase', clView: 'project', clUseCase: '', ganttViewBy: 'all',
 };
 
 export function useEngagementApp() {
@@ -131,11 +132,24 @@ export function useEngagementApp() {
   const onSearch = useCallback((v) => patch({ q: v }), [patch]);
   const onFilterSection = useCallback((v) => patch({ fSection: v }), [patch]);
   const onFilterStatus = useCallback((v) => patch({ fStatus: v }), [patch]);
+  const setClScope = useCallback((v) => patch({ clScope: v, fSection: 'All' }), [patch]);
+  const setClView = useCallback((v) => patch({ clView: v }), [patch]);
+  const setClUseCase = useCallback((v) => patch({ clUseCase: v }), [patch]);
+  const setGanttViewBy = useCallback((v) => patch({ ganttViewBy: v }), [patch]);
 
   // ---- checklist edits ----
   const editCl = useCallback((id, field, v) => mutate(p => { const it = p.checklist.find(x => x.id === id); if (it) it[field] = v; }), [mutate]);
-  const addClItem = useCallback((section) => mutate(p => { p.checklist.push({ id: uid('c'), section, subsection: 'Added', item: '', owner: '', due: '', status: '', notes: '', custom: true }); }), [mutate]);
+  const addClItem = useCallback((section) => mutate(p => { p.checklist.push({ id: uid('c'), section, subsection: 'Added', item: '', owner: '', due: '', status: '', notes: '', useCase: '', custom: true }); }), [mutate]);
   const delClItem = useCallback((id) => mutate(p => { p.checklist = p.checklist.filter(x => x.id !== id); }), [mutate]);
+
+  // ---- engagement phase ----
+  const setProjectPhase = useCallback((phase) => mutate(p => { p.phase = phase; }), [mutate]);
+
+  // ---- discovery ----
+  const editDiscoveryNotes = useCallback((v) => mutate(p => { p.discoveryNotes = v; }), [mutate]);
+  const addDiscoveryCandidate = useCallback((text) => { if (!text || !text.trim()) return; mutate(p => { if (!p.discoveryCandidates) p.discoveryCandidates = []; p.discoveryCandidates.push({ id: uid('dc'), text: text.trim() }); }); }, [mutate]);
+  const editDiscoveryCandidate = useCallback((id, text) => mutate(p => { const it = (p.discoveryCandidates || []).find(x => x.id === id); if (it) it.text = text; }), [mutate]);
+  const delDiscoveryCandidate = useCallback((id) => mutate(p => { p.discoveryCandidates = (p.discoveryCandidates || []).filter(x => x.id !== id); }), [mutate]);
 
   // ---- timeline / gantt edits ----
   const editEngStart = useCallback((v) => mutate(p => { ensureTimeline(p).engagementStart = v; }), [mutate]);
@@ -155,11 +169,24 @@ export function useEngagementApp() {
     mutate(p => { p.useCases.push({ id, code: 'UC-' + String(p.useCases.length + 1).padStart(3, '0'), name: '', problem: '', outcome: '', priority: 'Medium', phase: 'Phase 1', ownerCust: '', ownerAdobe: '', status: 'Candidate', target: '', metric: '', notes: '' }); });
     openEdit(id);
   }, [mutate, openEdit]);
+  const promoteCandidate = useCallback((candidateId) => {
+    const ucId = uid('uc');
+    mutate(p => {
+      const cand = (p.discoveryCandidates || []).find(x => x.id === candidateId);
+      p.useCases.push({ id: ucId, code: 'UC-' + String(p.useCases.length + 1).padStart(3, '0'), name: (cand && cand.text) || '', problem: '', outcome: '', priority: 'Medium', phase: 'Phase 1', ownerCust: '', ownerAdobe: '', status: 'Candidate', target: '', metric: '', notes: '' });
+      p.discoveryCandidates = (p.discoveryCandidates || []).filter(x => x.id !== candidateId);
+    });
+    openEdit(ucId);
+    patch({ tab: 'usecases', ucView: 'repo' });
+  }, [mutate, openEdit, patch]);
   const startEdit = useCallback((id) => openEdit(id), [openEdit]);
   const stopEdit = useCallback((id) => patch(s => { const m = { ...(s.editing || {}) }; delete m[id]; return { editing: m }; }), [patch]);
   const toggleBlocked = useCallback(() => patch(s => ({ expandBlocked: !s.expandBlocked })), [patch]);
   const toggleDue = useCallback(() => patch(s => ({ expandDue: !s.expandDue })), [patch]);
-  const delUc = useCallback((id) => mutate(p => { p.useCases = p.useCases.filter(x => x.id !== id); }), [mutate]);
+  const delUc = useCallback((id) => mutate(p => {
+    p.useCases = p.useCases.filter(x => x.id !== id);
+    p.checklist.forEach(it => { if (it.useCase === id) it.useCase = ''; });
+  }), [mutate]);
   const setUcView = useCallback((v) => patch({ ucView: v }), [patch]);
   const promote = useCallback((potentialId) => {
     const puc = T.potentialUseCases.find(x => x.id === potentialId); if (!puc) return;
@@ -294,9 +321,13 @@ export function useEngagementApp() {
     // projects
     createProject, delProject, dupProject, importWorkbookFile, exportAll, importBackupFile,
     // filters
-    onSearch, onFilterSection, onFilterStatus,
+    onSearch, onFilterSection, onFilterStatus, setClScope, setClView, setClUseCase, setGanttViewBy,
     // checklist
     editCl, addClItem, delClItem,
+    // phase
+    setProjectPhase,
+    // discovery
+    editDiscoveryNotes, addDiscoveryCandidate, editDiscoveryCandidate, delDiscoveryCandidate, promoteCandidate,
     // timeline
     editEngStart, editStageDays, editUcStart, genTimeline, toggleBusinessDays,
     // plan

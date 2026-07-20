@@ -1,19 +1,27 @@
 import { useMemo } from 'react';
 import { useEngagement } from '../../store/EngagementContext.jsx';
-import { statusStyle } from '../../lib/styleHelpers.js';
+import { statusStyle, segBtnStyle } from '../../lib/styleHelpers.js';
 import { parseDate } from '../../lib/dates.js';
+import { sectionPhase } from '../../lib/phases.js';
 
 const STATUS_OPTS = ['All', 'Open', 'Not started', 'In progress', 'Blocked', 'Done', 'N/A'];
 
 export default function Checklist({ proj }) {
   const app = useEngagement();
-  const { q, fSection, fStatus } = app.ui;
+  const { q, fSection, fStatus, clScope, clView, clUseCase } = app.ui;
+  const currentPhase = proj.phase;
+  const useCases = proj.useCases || [];
 
-  const secOpts = useMemo(() => {
-    const opts = ['All'];
-    proj.checklist.forEach(x => { if (!opts.includes(x.section)) opts.push(x.section); });
-    return opts;
-  }, [proj.checklist]);
+  const visibleSections = useMemo(() => {
+    const all = [];
+    proj.checklist.forEach(x => { if (!all.includes(x.section)) all.push(x.section); });
+    if (clScope === 'all') return all;
+    return all.filter(sec => { const ph = sectionPhase(sec); return ph === 'Ongoing' || ph === currentPhase; });
+  }, [proj.checklist, clScope, currentPhase]);
+
+  const secOpts = useMemo(() => ['All', ...visibleSections], [visibleSections]);
+
+  const activeUcId = clView === 'usecase' ? (clUseCase || (useCases[0] && useCases[0].id) || '') : '';
 
   const clGroups = useMemo(() => {
     const matchStatus = (s) => {
@@ -23,11 +31,14 @@ export default function Checklist({ proj }) {
       return s === fStatus;
     };
     const qLower = (q || '').toLowerCase();
+    const sectionSet = new Set(visibleSections);
     const groupMap = {}; const sectionOrder = [];
     proj.checklist.forEach((it, idx) => {
+      if (!sectionSet.has(it.section)) return;
       if (!sectionOrder.includes(it.section)) sectionOrder.push(it.section);
       if (fSection !== 'All' && it.section !== fSection) return;
       if (!matchStatus(it.status)) return;
+      if (clView === 'usecase' && activeUcId && it.useCase && it.useCase !== activeUcId) return;
       if (qLower && !((it.item || '').toLowerCase().includes(qLower) || (it.subsection || '').toLowerCase().includes(qLower) || (it.owner || '').toLowerCase().includes(qLower))) return;
       (groupMap[it.section] = groupMap[it.section] || []).push({ ...it, __ord: idx });
     });
@@ -43,7 +54,7 @@ export default function Checklist({ proj }) {
       const dn = groupMap[sec].filter(x => x.status === 'Done').length;
       return { section: sec, items: sorted, tally: `${dn}/${den} done` };
     });
-  }, [proj.checklist, fSection, fStatus, q]);
+  }, [proj.checklist, fSection, fStatus, q, visibleSections, clView, activeUcId]);
 
   return (
     <div className="rise-in">
@@ -52,7 +63,29 @@ export default function Checklist({ proj }) {
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 350 }}>EM Checklist</div>
           <div style={{ fontSize: 12, color: '#666' }}>182-item master tracker. Assign an owner, set a due date, and update status. N/A items are excluded from % complete.</div>
         </div>
+        <div style={{ display: 'flex', flexShrink: 0 }}>
+          <button onClick={() => app.setClView('project')} style={segBtnStyle(clView !== 'usecase')}>Whole project</button>
+          <button onClick={() => app.setClView('usecase')} style={segBtnStyle(clView === 'usecase')}>By use case</button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {clView === 'usecase' && (
+            useCases.length > 0 ? (
+              <select value={activeUcId} onChange={(e) => app.setClUseCase(e.target.value)} style={selStyle}>
+                {useCases.map(u => <option key={u.id} value={u.id}>{u.name || u.code}</option>)}
+              </select>
+            ) : (
+              <span style={{ fontSize: 12, color: '#999' }}>No use cases yet — add one in the Use Cases tab.</span>
+            )
+          )}
+          {clView === 'usecase' && useCases.length > 0 && <span style={{ fontSize: 11, color: '#999' }}>+ items that apply to the whole project</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => app.setClScope(clScope === 'phase' ? 'all' : 'phase')} style={scopeBtn} title="Toggle between just this project's current phase and every phase">
+            {clScope === 'phase' ? `Showing: ${currentPhase} + ongoing` : 'Showing: all phases'}
+          </button>
           <input placeholder="Search items…" value={q} onChange={(e) => app.onSearch(e.target.value)} style={{ fontSize: 12, padding: '8px 10px', border: '1px solid rgba(0,0,0,0.25)', width: 200 }} />
           <select value={fSection} onChange={(e) => app.onFilterSection(e.target.value)} style={selStyle}>
             {secOpts.map(o => <option key={o} value={o}>{o}</option>)}
@@ -62,6 +95,12 @@ export default function Checklist({ proj }) {
           </select>
         </div>
       </div>
+
+      {clGroups.length === 0 && (
+        <div style={{ border: '1px dashed rgba(0,0,0,0.3)', padding: 32, textAlign: 'center', color: '#666', fontSize: 13, marginTop: 20 }}>
+          Nothing matches here. {clScope === 'phase' && <>Try <button onClick={() => app.setClScope('all')} style={inlineLink}>showing all phases</button>.</>}
+        </div>
+      )}
 
       {clGroups.map(g => (
         <div key={g.section} style={{ marginTop: 26 }}>
@@ -75,7 +114,7 @@ export default function Checklist({ proj }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <Th w="38%">Item</Th><Th>Owner</Th><Th w={130}>Due</Th><Th w={150}>Status</Th><Th w="22%">Notes</Th>
+                <Th w="32%">Item</Th><Th>Owner</Th><Th w={130}>Due</Th><Th w={150}>Status</Th><Th w={140}>Use case</Th><Th w="18%">Notes</Th>
               </tr>
             </thead>
             <tbody>
@@ -94,7 +133,7 @@ export default function Checklist({ proj }) {
                     )}
                   </td>
                   <td style={{ padding: '6px 12px', verticalAlign: 'top' }}>
-                    <input defaultValue={it.owner} onBlur={(e) => app.editCl(it.id, 'owner', e.target.value)} placeholder="—" style={{ fontSize: 12, padding: '5px 6px', border: '1px solid rgba(0,0,0,0.18)', width: '100%', minWidth: 120 }} />
+                    <input defaultValue={it.owner} onBlur={(e) => app.editCl(it.id, 'owner', e.target.value)} placeholder="—" style={{ fontSize: 12, padding: '5px 6px', border: '1px solid rgba(0,0,0,0.18)', width: '100%', minWidth: 110 }} />
                   </td>
                   <td style={{ padding: '6px 12px', verticalAlign: 'top' }}>
                     <input type="date" defaultValue={it.due} onChange={(e) => app.editCl(it.id, 'due', e.target.value)} style={{ fontSize: 12, padding: '4px 5px', border: '1px solid rgba(0,0,0,0.18)', width: '100%' }} />
@@ -102,6 +141,12 @@ export default function Checklist({ proj }) {
                   <td style={{ padding: '6px 12px', verticalAlign: 'top' }}>
                     <select value={it.status} onChange={(e) => app.editCl(it.id, 'status', e.target.value)} style={statusStyle(it.status)}>
                       <option value="">— Not set</option><option value="Not started">Not started</option><option value="In progress">In progress</option><option value="Blocked">Blocked</option><option value="Done">Done</option><option value="N/A">N/A</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: '6px 12px', verticalAlign: 'top' }}>
+                    <select value={it.useCase || ''} onChange={(e) => app.editCl(it.id, 'useCase', e.target.value)} style={{ fontSize: 12, padding: '5px 6px', border: '1px solid rgba(0,0,0,0.18)', width: '100%' }}>
+                      <option value="">Whole project</option>
+                      {useCases.map(u => <option key={u.id} value={u.id}>{u.name || u.code}</option>)}
                     </select>
                   </td>
                   <td style={{ padding: '6px 12px', verticalAlign: 'top' }}>
@@ -122,5 +167,7 @@ function Th({ children, w }) {
 }
 
 const selStyle = { fontSize: 12, padding: '8px 10px', border: '1px solid rgba(0,0,0,0.25)' };
+const scopeBtn = { fontSize: 11, letterSpacing: '0.04em', padding: '8px 10px', border: '1px solid rgba(0,0,0,0.25)', background: '#fff', color: '#000', cursor: 'pointer', whiteSpace: 'nowrap' };
 const addTaskBtn = { border: '1px solid rgba(255,255,255,0.4)', background: 'none', color: '#fff', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', padding: '5px 10px' };
 const removeBtn = { border: 0, background: 'none', fontSize: 15, color: '#999', cursor: 'pointer', flexShrink: 0 };
+const inlineLink = { border: 0, background: 'none', color: '#000', textDecoration: 'underline', cursor: 'pointer', fontSize: 13, padding: 0 };

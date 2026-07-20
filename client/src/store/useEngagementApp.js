@@ -15,7 +15,7 @@ const initialUi = {
   helpOpen: false, integrationsOpen: false, weekOffset: 0, onlyMine: false,
   uploading: [], aiOpen: false, aiFileId: null, aiFileName: '', aiProposal: null, aiChecked: {}, aiBusyId: null, aiErr: '',
   editing: {}, expandBlocked: false, expandDue: false, ucView: 'repo',
-  clScope: 'phase', clView: 'project', clUseCase: '', ganttViewBy: 'all',
+  clScope: 'phase', clView: 'project', clUseCase: '', ganttViewBy: 'all', planView: 'detailed',
 };
 
 export function useEngagementApp() {
@@ -136,6 +136,7 @@ export function useEngagementApp() {
   const setClView = useCallback((v) => patch({ clView: v }), [patch]);
   const setClUseCase = useCallback((v) => patch({ clUseCase: v }), [patch]);
   const setGanttViewBy = useCallback((v) => patch({ ganttViewBy: v }), [patch]);
+  const setPlanView = useCallback((v) => patch({ planView: v }), [patch]);
 
   // ---- checklist edits ----
   const editCl = useCallback((id, field, v) => mutate(p => { const it = p.checklist.find(x => x.id === id); if (it) it[field] = v; }), [mutate]);
@@ -321,7 +322,7 @@ export function useEngagementApp() {
     // projects
     createProject, delProject, dupProject, importWorkbookFile, exportAll, importBackupFile,
     // filters
-    onSearch, onFilterSection, onFilterStatus, setClScope, setClView, setClUseCase, setGanttViewBy,
+    onSearch, onFilterSection, onFilterStatus, setClScope, setClView, setClUseCase, setGanttViewBy, setPlanView,
     // checklist
     editCl, addClItem, delClItem,
     // phase

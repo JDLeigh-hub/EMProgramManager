@@ -1,13 +1,40 @@
 import { useMemo } from 'react';
 import { useEngagement } from '../../store/EngagementContext.jsx';
-import { statusStyle } from '../../lib/styleHelpers.js';
-import { computeGantt } from '../../lib/gantt.js';
+import { statusStyle, segBtnStyle, healthStyle } from '../../lib/styleHelpers.js';
+import { computeGantt, computeTimelinePhases } from '../../lib/gantt.js';
+import { computeStats } from '../../lib/stats.js';
 
 export default function Plan({ proj }) {
   const app = useEngagement();
+  const view = app.ui.planView || 'detailed';
+
+  return (
+    <div className="rise-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 350 }}>Project Plan</div>
+          <div style={{ fontSize: 12, color: '#666', maxWidth: 640 }}>
+            {view === 'detailed'
+              ? 'Set one engagement start date for the shared, one-time work, then a start date per use case. The timeline rolls everything into four phases, each shown as a Gantt track with per-task detail below.'
+              : 'A clean, share-ready rollup by phase — progress, dates and days, no editing controls.'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexShrink: 0 }}>
+          <button onClick={() => app.setPlanView('detailed')} style={segBtnStyle(view === 'detailed')}>Detailed</button>
+          <button onClick={() => app.setPlanView('summary')} style={segBtnStyle(view === 'summary')}>Executive summary</button>
+        </div>
+      </div>
+
+      {view === 'detailed' ? <DetailedPlan proj={proj} app={app} /> : <ExecutiveSummary proj={proj} app={app} />}
+    </div>
+  );
+}
+
+function DetailedPlan({ proj, app }) {
   const tl = proj.timeline || app.defaultTimeline();
   const viewBy = app.ui.ganttViewBy || 'all';
   const gantt = useMemo(() => computeGantt(proj, viewBy), [proj, viewBy]);
+  const phases = useMemo(() => computeTimelinePhases(proj), [proj]);
 
   const planRows = useMemo(() => proj.plan.map(t => {
     let duration = '';
@@ -23,19 +50,14 @@ export default function Plan({ proj }) {
   const hasUseCases = (proj.useCases || []).length > 0;
 
   return (
-    <div className="rise-in">
-      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 350 }}>Project Plan</div>
-      <div style={{ fontSize: 12, color: '#666', marginBottom: 18, maxWidth: 720 }}>
-        Set one engagement start date for the shared, one-time work (mobilization, access, kickoff), then a start date per use case. The timeline rolls everything up into four phases — Kickoff → Discovery → Implementation → Assessment — with each use case's work shown inside the phase it belongs to. Generate the timeline and it auto-updates as dates change. Bar fill shows progress pulled from the task detail below.
-      </div>
-
-      <div style={{ border: '1px solid #000', marginBottom: 22 }}>
+    <>
+      <div style={{ border: '1px solid #000', marginTop: 18, marginBottom: 22 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#000', color: '#fff', padding: '8px 14px' }}>
-          <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>Timeline setup</div>
+          <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>Timeline planner</div>
           <button onClick={app.genTimeline} style={genBtn}>Generate timeline ↓</button>
         </div>
         <div style={{ padding: '16px 14px' }}>
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 18 }}>
             <div>
               <Label>Engagement start (one-time work)</Label>
               <input type="date" defaultValue={tl.engagementStart} onChange={(e) => app.editEngStart(e.target.value)} style={dateInput} />
@@ -44,19 +66,36 @@ export default function Plan({ proj }) {
               <Label>Schedule basis</Label>
               <button onClick={app.toggleBusinessDays} title="Toggle between counting only Mon–Fri or all calendar days" style={bdBtnStyle}>{bdLabel}</button>
             </div>
-            <div style={{ flex: 1, minWidth: 280 }}>
-              <Label>Stage durations (working plan, in days)</Label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {tl.stages.map(s => (
-                  <div key={s.key} style={{ border: '1px solid rgba(0,0,0,0.2)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div><div style={{ fontSize: 11, fontWeight: 700 }}>{s.label}</div><div style={{ fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#999' }}>{s.scope === 'shared' ? 'One-time' : 'Per use case'}</div></div>
-                    <input type="number" min="1" max="400" defaultValue={s.days} onChange={(e) => app.editStageDays(s.key, e.target.value)} style={{ fontSize: 12, padding: 4, border: '1px solid rgba(0,0,0,0.2)', width: 52, textAlign: 'right' }} />
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
-          <div style={{ marginTop: 16 }}>
+
+          <Label>Phases — adjust days per stage, dates auto-cascade from the start date above</Label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 12, marginTop: 6 }}>
+            {phases.map((ph, i) => (
+              <div key={ph.name} style={{ border: '1px solid #000' }}>
+                <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(0,0,0,0.15)' }}>
+                  <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700 }}>{i + 1}. {ph.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 4 }}>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 350 }}>{ph.totalDays}</div>
+                    <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#666' }}>days</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>{ph.rangeLabel}</div>
+                </div>
+                <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {ph.stages.map(s => (
+                    <div key={s.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700 }}>{s.label}</div>
+                        <div style={{ fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#999' }}>{s.scope === 'shared' ? 'One-time' : 'Per use case'}</div>
+                      </div>
+                      <input type="number" min="1" max="400" defaultValue={s.days} onChange={(e) => app.editStageDays(s.key, e.target.value)} style={{ fontSize: 12, padding: 4, border: '1px solid rgba(0,0,0,0.2)', width: 48, textAlign: 'right', flexShrink: 0 }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 18 }}>
             <Label>Use-case start dates</Label>
             {hasUseCases ? (
               <>
@@ -109,7 +148,7 @@ export default function Plan({ proj }) {
                 <div key={gi}>
                   <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', background: '#000', color: '#fff' }}>
                     <div style={{ padding: '6px 12px', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>{gi + 1}. {grp.name}</div>
-                    <div style={{ padding: '6px 12px', fontSize: 11, color: '#bbb' }}>{grp.empty ? '—' : ''}</div>
+                    <div style={{ padding: '6px 12px', fontSize: 11, color: '#bbb' }}>{grp.empty ? '—' : (phases[gi] ? phases[gi].rangeLabel + ' · ' + grp.rows.length + (grp.rows.length === 1 ? ' task' : ' tasks') : '')}</div>
                   </div>
                   {grp.empty && <div style={{ padding: '10px 12px', fontSize: 11, color: '#999', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>Nothing in this phase{viewBy !== 'all' ? ' for this use case' : ''}.</div>}
                   {grp.rows.map((r, ri) => (
@@ -165,6 +204,54 @@ export default function Plan({ proj }) {
           ))}
         </tbody>
       </table>
+    </>
+  );
+}
+
+function ExecutiveSummary({ proj, app }) {
+  const phases = useMemo(() => computeTimelinePhases(proj), [proj]);
+  const dash = useMemo(() => computeStats(proj, app.dueSoonDays), [proj, app.dueSoonDays]);
+  const tl = proj.timeline || app.defaultTimeline();
+  const hasStart = !!tl.engagementStart;
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ border: '1px solid #000', padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#666' }}>Overall progress</div>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 350, marginTop: 4 }}>{dash.overallStr}</div>
+        </div>
+        <span style={healthStyle(dash.health)}>{dash.health}</span>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#666' }}>Plan complete</div>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 350, marginTop: 4 }}>{dash.pPctStr}</div>
+        </div>
+      </div>
+
+      {!hasStart && (
+        <div style={{ border: '1px dashed rgba(0,0,0,0.3)', padding: 24, textAlign: 'center', color: '#666', fontSize: 13, marginTop: 20 }}>
+          Set an engagement start date and generate the timeline in <b>Detailed</b> view to see phase dates here.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 20, border: '1px solid #000' }}>
+        {phases.map((ph, i) => (
+          <div key={ph.name} style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 20px', borderBottom: i < phases.length - 1 ? '1px solid rgba(0,0,0,0.12)' : 0 }}>
+            <div style={{ flex: '0 0 170px' }}>
+              <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#666' }}>{i + 1}.</div>
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 350 }}>{ph.name}</div>
+            </div>
+            <div style={{ flex: '0 0 180px', fontSize: 12, color: '#666' }}>
+              <div>{ph.rangeLabel}</div>
+              <div style={{ color: '#999', marginTop: 2 }}>{ph.totalDays} days{ph.perUse ? ' per use case' : ''}{ph.ucCount != null ? ' · ' + ph.ucCount + (ph.ucCount === 1 ? ' use case' : ' use cases') : ''}</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ height: 10, background: '#ededed' }}><div style={{ height: 10, background: '#000', width: ph.pct + '%' }} /></div>
+            </div>
+            <div style={{ flex: '0 0 50px', textAlign: 'right', fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 350 }}>{ph.pct}%</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

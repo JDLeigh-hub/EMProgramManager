@@ -18,19 +18,20 @@ const PALETTE = [
   { fill: '#B0870F', track: '#F2E9CF' }, { fill: '#2E8B8B', track: '#D7ECEC' },
 ];
 const SHARED_COLOR = { fill: '#3E3E3E', track: '#E6E6E6' };
+const fmtDate = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-// viewBy: 'all' shows every use case's rows; a use-case id restricts the
-// per-use-case bands to just that use case (shared/Kickoff rows always show).
-export function computeGantt(proj, viewBy = 'all') {
+// Shared date math: every bar (shared stages + every use case's per-use-case
+// stages), always computed for the WHOLE project regardless of any Gantt
+// view-by filter. Both computeGantt (rows) and computeTimelinePhases
+// (summary cards) build on this so the underlying schedule never diverges.
+function buildBars(proj) {
   const tl = proj.timeline || defaultTimeline();
   const engStart = parseDate(tl.engagementStart);
   const ucs = proj.useCases || [];
-  const base = { ok: false, hasUseCases: ucs.length > 0, show: !!tl.show };
-  if (!engStart) return { ...base, render: false, needsStart: !!tl.show, hasToday: false, reason: 'Set an engagement start date above, then generate the timeline.' };
+  if (!engStart) return null;
 
   const shared = tl.stages.filter(s => s.scope === 'shared');
   const perUc = tl.stages.filter(s => s.scope === 'usecase');
-  const phasePct = phasePctMap(proj);
   const bd = tl.businessDays !== false;
 
   let cursor = engStart; const sharedBars = [];
@@ -43,14 +44,25 @@ export function computeGantt(proj, viewBy = 'all') {
     return { uc, color: PALETTE[i % PALETTE.length], start: parseDate(tl.ucStarts[uc.id]) || sharedEnd, end: c, bars };
   });
 
-  // The date axis always spans the whole engagement, regardless of the
-  // view-by filter, so switching filters doesn't rescale the timeline.
   let min = engStart, max = sharedEnd;
   ucGroups.forEach(g => { if (g.start < min) min = g.start; if (g.end > max) max = g.end; });
   const span = Math.max(1, (max - min));
   const totalDays = Math.round(span / 86400000);
+
+  return { tl, engStart, sharedBars, sharedEnd, ucGroups, min, max, span, totalDays, bd };
+}
+
+// viewBy: 'all' shows every use case's rows; a use-case id restricts the
+// per-use-case bands to just that use case (shared/Kickoff rows always show).
+export function computeGantt(proj, viewBy = 'all') {
+  const ucs = proj.useCases || [];
+  const base = { ok: false, hasUseCases: ucs.length > 0, show: !!(proj.timeline || {}).show };
+  const built = buildBars(proj);
+  if (!built) return { ...base, render: false, needsStart: !!base.show, hasToday: false, reason: 'Set an engagement start date above, then generate the timeline.' };
+  const { tl, sharedBars, ucGroups, min, max, span, totalDays, bd } = built;
+
+  const phasePct = phasePctMap(proj);
   const pctOf = (d) => ((d - min) / span * 100);
-  const fmtDate = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   const mkRow = (bar, uc, color) => {
     const left = pctOf(bar.start), w = Math.max(0.5, pctOf(bar.end) - pctOf(bar.start));
@@ -94,4 +106,51 @@ export function computeGantt(proj, viewBy = 'all') {
     ...base, ok: true, render: !!tl.show, needsStart: false, hasToday: todayLeft != null, groups, months, trackBg, todayLeft, legend,
     rangeLabel: fmtDate(min) + ' – ' + fmtDate(max), totalDaysLabel: totalDays + ' days · ' + (bd ? 'business days' : 'calendar days'),
   };
+}
+
+// Per-phase rollup used by the Timeline Planner cards and the Executive
+// Summary view: always computed for the whole project (every use case),
+// independent of the Gantt's own view-by filter.
+export function computeTimelinePhases(proj) {
+  const tl = proj.timeline || defaultTimeline();
+  const stagesByPhase = {};
+  GANTT_PHASE_ORDER.forEach(ph => { stagesByPhase[ph] = []; });
+  tl.stages.forEach(s => { stagesByPhase[taskPhaseGroup(s.phase)].push(s); });
+
+  const built = buildBars(proj);
+  const phasePct = computePlanPhasePct(proj.plan || []);
+
+  const dateRangeFor = (ph) => {
+    if (!built) return null;
+    let min = null, max = null;
+    built.sharedBars.forEach(b => { if (taskPhaseGroup(b.s.phase) !== ph) return; if (!min || b.start < min) min = b.start; if (!max || b.end > max) max = b.end; });
+    built.ucGroups.forEach(g => g.bars.forEach(b => { if (taskPhaseGroup(b.s.phase) !== ph) return; if (!min || b.start < min) min = b.start; if (!max || b.end > max) max = b.end; }));
+    return min && max ? { start: min, end: max, label: fmtDate(min) + ' – ' + fmtDate(max) } : null;
+  };
+
+  const ucCount = (proj.useCases || []).length;
+
+  return GANTT_PHASE_ORDER.map(ph => {
+    const stages = stagesByPhase[ph];
+    const totalDays = stages.reduce((a, s) => a + (parseInt(s.days, 10) || 0), 0);
+    const perUse = stages.some(s => s.scope === 'usecase');
+    const range = dateRangeFor(ph);
+    return {
+      name: ph, stages, totalDays, perUse,
+      ucCount: perUse ? ucCount : null,
+      range, rangeLabel: range ? range.label : '—',
+      pct: phasePct(ph),
+    };
+  });
+}
+
+function computePlanPhasePct(plan) {
+  const sums = {};
+  GANTT_PHASE_ORDER.forEach(ph => { sums[ph] = { n: 0, s: 0 }; });
+  plan.forEach(t => {
+    const ph = taskPhaseGroup(t.phase);
+    const o = sums[ph]; o.n++;
+    o.s += (parseInt(t.pct, 10) || 0) || (t.status === 'Done' ? 100 : 0);
+  });
+  return (ph) => (sums[ph] && sums[ph].n) ? Math.round(sums[ph].s / sums[ph].n) : 0;
 }
